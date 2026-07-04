@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field, HttpUrl
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 import sqlite3, json
 app = FastAPI()
 
@@ -91,6 +91,26 @@ def get_farms():
         row["reko_markets"] = json.loads(row["reko_markets"])
         row["is_active"] = bool(row["is_active"])
     return farms
+
+def get_farm_by_id(farm_id: int):
+    conn = sqlite3.connect("reko.db")
+    conn.row_factory = sqlite3.Row
+    cursor = conn.execute(
+        "SELECT * FROM farms WHERE id = ?", (farm_id,)
+    )
+    row = cursor.fetchone()
+    conn.close()
+    if row is None:
+        return None
+    farm = dict(row)
+    farm["certifications"] = json.loads(farm["certifications"])
+    farm["produce_categories"] = json.loads(farm["produce_categories"])
+    farm["reko_markets"] = json.loads(farm["reko_markets"])
+    farm["is_active"] = bool(farm["is_active"])
+    return farm
+
+
+# Routes below
 @app.get("/")
 async def root():
     return {"message": "It's working"}
@@ -104,3 +124,10 @@ async def create_farm(farm: Farm):
 async def get_all_farms():
     all_farms = get_farms()
     return {"Farms": all_farms}
+
+@app.get("/farms/{farm_id}")
+async def get_farm(farm_id: int):
+    farm = get_farm_by_id(farm_id)
+    if farm is None:
+        raise HTTPException(status_code=404, detail="Farm not found")
+    return {"id": farm_id, "farm": farm}
