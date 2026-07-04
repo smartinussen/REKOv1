@@ -1,9 +1,9 @@
-
 from pydantic import BaseModel, EmailStr, Field, HttpUrl
 from fastapi import FastAPI
-import sqlite3
+import sqlite3, json
+app = FastAPI()
 
-def create_table():
+def create_farm_table():
     conn = sqlite3.connect("reko.db")
     conn.execute("""
         CREATE TABLE IF NOT EXISTS farms (
@@ -30,8 +30,7 @@ def create_table():
     conn.commit()
     conn.close()
 
-app = FastAPI()
-create_table()
+create_farm_table()
 
 class Farm(BaseModel):
     farm_name: str = Field(..., description="Name of the farm")
@@ -50,11 +49,58 @@ class Farm(BaseModel):
     reko_markets: list[str] = Field(...,description="Which REKO markets does the farm participate in")
     is_active: bool = Field(True, description="Whether the farm profile is currently active on the marketplace")
 
+def insert_farm(farm: Farm):
+    conn = sqlite3.connect("reko.db")
+    cursor = conn.execute(
+        "INSERT INTO farms (farm_name, farm_manager, address, city, postal_code, latitude, longitude, phone_no, email, website, description, certifications, produce_categories, reko_markets, is_active) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        (farm.farm_name,
+         farm.farm_manager,
+         farm.address,
+         farm.city,
+         farm.postal_code,
+         farm.latitude,
+         farm.longitude,
+         farm.phone_no,
+         farm.email,
+         str(farm.website) if farm.website else None,
+         farm.description,
+         json.dumps(farm.certifications),
+         json.dumps(farm.produce_categories),
+         json.dumps(farm.reko_markets),
+         int(farm.is_active)
+         )
+    )
+    conn.commit()
+    new_id = cursor.lastrowid
+    conn.close()
+    return new_id
 
+
+def get_farms():
+    conn = sqlite3.connect("reko.db")
+    conn.row_factory = sqlite3.Row
+    cursor = conn.execute(
+        "SELECT * FROM farms"
+         )
+    rows = cursor.fetchall()
+    conn.close()
+    farms = [dict(row) for row in rows]
+    for row in farms:
+        row["certifications"] = json.loads(row["certifications"])
+        row["produce_categories"] = json.loads(row["produce_categories"])
+        row["reko_markets"] = json.loads(row["reko_markets"])
+        row["is_active"] = bool(row["is_active"])
+    return farms
 @app.get("/")
 async def root():
     return {"message": "It's working"}
 
 @app.post("/farms")
 async def create_farm(farm: Farm):
-    return farm
+    new_id = insert_farm(farm)
+    return {"id": new_id, "farm": farm}
+
+@app.get("/farms")
+async def get_all_farms():
+    all_farms = get_farms()
+    return {"Farms": all_farms}
