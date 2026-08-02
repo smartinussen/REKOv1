@@ -75,6 +75,12 @@ def insert_farm(farm: Farm):
     conn.close()
     return new_id
 
+def clear_farm_data(farm):
+    farm["certifications"] = json.loads(farm["certifications"])
+    farm["produce_categories"] = json.loads(farm["produce_categories"])
+    farm["reko_markets"] = json.loads(farm["reko_markets"])
+    farm["is_active"] = bool(farm["is_active"])
+    return farm
 
 def get_farms():
     conn = sqlite3.connect("reko.db")
@@ -86,10 +92,7 @@ def get_farms():
     conn.close()
     farms = [dict(row) for row in rows]
     for row in farms:
-        row["certifications"] = json.loads(row["certifications"])
-        row["produce_categories"] = json.loads(row["produce_categories"])
-        row["reko_markets"] = json.loads(row["reko_markets"])
-        row["is_active"] = bool(row["is_active"])
+        clear_farm_data(row)
     return farms
 
 def get_farm_by_id(farm_id: int):
@@ -103,11 +106,9 @@ def get_farm_by_id(farm_id: int):
     if row is None:
         return None
     farm = dict(row)
-    farm["certifications"] = json.loads(farm["certifications"])
-    farm["produce_categories"] = json.loads(farm["produce_categories"])
-    farm["reko_markets"] = json.loads(farm["reko_markets"])
-    farm["is_active"] = bool(farm["is_active"])
+    clear_farm_data(farm)
     return farm
+
 
 
 # Routes below
