@@ -8,3 +8,6 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Local runtime database (auto-created by database.create_farm_table())
+reko.db
