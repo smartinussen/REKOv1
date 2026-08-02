@@ -1,6 +1,9 @@
-from pydantic import BaseModel, EmailStr, Field, HttpUrl
+import json
+import sqlite3
+
 from fastapi import FastAPI, HTTPException
-import sqlite3, json
+from pydantic import BaseModel, EmailStr, Field, HttpUrl
+
 app = FastAPI()
 
 def create_farm_table():
