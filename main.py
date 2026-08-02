@@ -52,6 +52,25 @@ class Farm(BaseModel):
     reko_markets: list[str] = Field(...,description="Which REKO markets does the farm participate in")
     is_active: bool = Field(True, description="Whether the farm profile is currently active on the marketplace")
 
+class FarmUpdate(BaseModel):
+    farm_name: str | None = Field(None, description="Name of the farm")
+    farm_manager: str | None = Field(None, description="Owners name")
+    address: str | None = Field(None, description="Street address")
+    city: str | None = Field(None, description="City or municipality")
+    postal_code: str | None = Field(None, description="Postal code")
+    latitude: float | None = Field(None, ge=-90.0, le=90.0)
+    longitude: float | None = Field(None, ge=-180.0, le=180.0)
+    phone_no: str | None = Field(None, description="Primary contact phone number")
+    email: EmailStr | None = Field(None, description="Public contact email for the farm")
+    website: HttpUrl | None = Field(None, description="Farm's website URL")
+    description: str | None = Field(None, description="A short bio or story about the farm")
+    certifications: list[str] | None = Field(None, description="List of certifications (e.g., Organic, Demeter)")
+    produce_categories: list[str] | None = Field(None, description="Categories of produce sold (e.g., Root vegetables, Berries)")
+    reko_markets: list[str] | None = Field(None, description="Which REKO markets does the farm participate in")
+    is_active: bool | None = Field(None, description="Whether the farm profile is currently active on the marketplace")
+
+
+
 def insert_farm(farm: Farm):
     conn = sqlite3.connect("reko.db")
     cursor = conn.execute(
@@ -113,6 +132,25 @@ def get_farm_by_id(farm_id: int):
     return farm
 
 
+def update_farm(farm_id: int, updates: dict):
+    conn = sqlite3.connect("reko.db")
+    fields = ", ".join(f"{key} = ?" for key in updates)
+    sql = f"UPDATE farms SET {fields}, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+    converted = {}
+    for key, value in updates.items():
+        if key in ("certifications", "produce_categories", "reko_markets"):
+            value = json.dumps(value)
+        elif key == "website":
+            value = str(value)
+        elif key == "is_active":
+            value = int(value)
+        converted[key] = value
+    values = list(converted.values())
+    values.append(farm_id)
+    cursor = conn.execute(sql, values)
+    conn.commit()
+    conn.close()
+    return cursor.rowcount != 0
 
 # Routes below
 @app.get("/")
@@ -135,3 +173,12 @@ async def get_farm(farm_id: int):
     if farm is None:
         raise HTTPException(status_code=404, detail="Farm not found")
     return {"id": farm_id, "farm": farm}
+
+@app.patch("/farms/{farm_id}")
+async def patch_farm(farm_id: int, updates: FarmUpdate):
+    updates_dict = updates.model_dump(exclude_unset=True)
+    success = update_farm(farm_id, updates_dict)
+    if not success:
+        raise HTTPException(status_code=404, detail="Farm not found")
+    updated_farm = get_farm_by_id(farm_id)
+    return {"message": "Farm updated.","Farm": updated_farm}
